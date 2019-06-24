@@ -20,7 +20,7 @@
 
 package main
 
-import "worth/cmd"
+import "github.com/edlitmus/worth/cmd"
 
 func main() {
 	cmd.Execute()

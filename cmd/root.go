@@ -21,16 +21,45 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"os"
+	"path/filepath"
+	"strconv"
+	"time"
 
+	"github.com/leekchan/accounting"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"gopkg.in/resty.v1"
 )
 
 var cfgFile string
 var ticker string
+var shares int64
+var sharesSold int64
+var strikePrice float64
+var startTime string
+var endTime string
+var vestStart time.Time
+var vestEnd time.Time
+
+type JsonQuote struct {
+	GlobalQuote struct {
+		Symbol           string `json:"01. symbol"`
+		Open             string `json:"02. open"`
+		High             string `json:"03. high"`
+		Low              string `json:"04. low"`
+		Price            string `json:"05. price"`
+		Volume           string `json:"06. volume"`
+		LatestTradingDay string `json:"07. latest trading day"`
+		PreviousClose    string `json:"08. previous close"`
+		Change           string `json:"09. change"`
+		ChangePercent    string `json:"10. change percent"`
+	} `json:"Global Quote"`
+}
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -39,6 +68,31 @@ var rootCmd = &cobra.Command{
 	Long: `Find out the value of your stock, and figure out how much
 longer you have to wait until you're fully vested.
 Originally written in perl by Jamie Zawinski.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		var err error
+		vestStart, err = time.Parse(time.RFC3339, viper.GetString("vest-start"))
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		vestEnd, err = time.Parse(time.RFC3339, viper.GetString("vest-end"))
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		quote, err := getQuote()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		val, err := strconv.ParseFloat(quote.GlobalQuote.Price, 64)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		formatOutput(val)
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -50,11 +104,38 @@ func Execute() {
 	}
 }
 
+func getQuote() (JsonQuote, error) {
+	var quote JsonQuote
+	var err error
+	// resty.SetDebug(true)
+	resp, err := resty.R().
+		SetQueryParams(map[string]string{
+			"function": "GLOBAL_QUOTE",
+			"symbol":   viper.GetString("ticker"),
+			"apikey":   viper.GetString("apikey"),
+		}).
+		SetHeader("X-Requested-With", "Curl").
+		Get("https://www.alphavantage.co/query")
+	if err != nil {
+		return quote, err
+	}
+	// resty.SetDebug(false)
+	jsn := resp.Body()
+	err = json.Unmarshal(jsn, &quote)
+
+	return quote, err
+}
+
 func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.config/worth/config.yaml)")
-	rootCmd.PersistentFlags().StringVar(&ticker, "ticker", "t", "ticker symbol")
+	rootCmd.PersistentFlags().StringVar(&ticker, "ticker", "", "ticker symbol")
+	rootCmd.PersistentFlags().Float64Var(&strikePrice, "strike-price", 0.0, "strike price")
+	rootCmd.PersistentFlags().Int64Var(&shares, "shares", 1, "number of shares")
+	rootCmd.PersistentFlags().Int64Var(&sharesSold, "shares sold", 0, "number of shares sold")
+	rootCmd.PersistentFlags().StringVar(&startTime, "vest-start", "", "vesting start date (RFC3339)")
+	rootCmd.PersistentFlags().StringVar(&endTime, "vest-end", "", "vesting end date (RFC3339)")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -70,15 +151,57 @@ func initConfig() {
 			os.Exit(1)
 		}
 
-		// Search config in home directory with name ".worth" (without extension).
-		viper.AddConfigPath(fmt.Sprintf("%s/.config/worth/", home))
+		configPath := fmt.Sprintf("%s/.config/worth/", home)
+		dir := filepath.Clean(configPath)
+		err = os.MkdirAll(dir, 0700)
+		if err != nil {
+			log.Fatalf("error creating config file path: %s", err)
+		}
+		_, err = os.OpenFile(dir+"/config.yaml", os.O_RDONLY|os.O_CREATE, 0660)
+		if err != nil {
+			log.Fatalf("Error creating config file: %s", err)
+		}
+
+		// set config in "~/.config/worth/config.yaml".
+		viper.AddConfigPath(configPath)
 		viper.SetConfigName("config")
+		viper.SetConfigType("yaml")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	err := viper.ReadInConfig() // Find and read the config file
+	if err != nil {             // Handle errors reading the config file
+		log.Fatalf("Fatal error config file: %s", err)
 	}
+}
+
+func formatOutput(price float64) {
+	now := time.Now()
+	portionDone := float64(now.Unix()-vestStart.Unix()) / float64(vestEnd.Unix()-vestStart.Unix())
+
+	shares = viper.GetInt64("shares")
+	sharesVested := float64(shares) * portionDone
+	sharesUnvested := float64(shares) - sharesVested
+	sharesVestedAndUnsold := sharesVested - float64(sharesSold)
+
+	ac := accounting.Accounting{Symbol: "$", Precision: 2}
+
+	// subtract the strike price to get the take away value for your shares...
+	value := price - viper.GetFloat64("strike-price")
+	shareValue := float64(viper.GetInt64("shares")) * value
+
+	fmt.Printf("Today's %s price is %s; ", viper.GetString("ticker"), ac.FormatMoney(price))
+	fmt.Printf("your total unsold shares are worth %s.\n", ac.FormatMoney(shareValue))
+
+	if portionDone >= 1.0 {
+		fmt.Printf("You are 100%% vested.  Why are you still here?\n\n")
+		os.Exit(0)
+	}
+
+	fmt.Printf("You are %d%% vested, for a total of ", int(portionDone*100))
+	fmt.Printf("%d vested unsold shares (%s)\n", int(sharesVestedAndUnsold), ac.FormatMoney(sharesVestedAndUnsold*value))
+	fmt.Printf("But if you quit today, you will walk away from %s\n", ac.FormatMoney(sharesUnvested*value))
+	fmt.Printf("Hang in there, little trooper!  Only %v to go!\n", vestEnd.Sub(now).String())
 }
