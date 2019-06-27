@@ -153,12 +153,13 @@ func initConfig() {
 		}
 
 		configPath := fmt.Sprintf("%s/.config/worth/", home)
+		cfgFile = fmt.Sprintf("%sconfig.yaml", configPath)
 		dir := filepath.Clean(configPath)
 		err = os.MkdirAll(dir, 0700)
 		if err != nil {
 			log.Fatalf("error creating config file path: %s", err)
 		}
-		_, err = os.OpenFile(dir+"/config.yaml", os.O_RDONLY|os.O_CREATE, 0660)
+		_, err = os.OpenFile(dir+"/config.yaml", os.O_RDONLY|os.O_CREATE, 0600)
 		if err != nil {
 			log.Fatalf("Error creating config file: %s", err)
 		}
@@ -202,22 +203,22 @@ func formatOutput(cmd *cobra.Command, price float64) {
 	}
 
 	diff := vestEnd.Sub(now)
-	secsToGo := RoundTime(diff.Seconds())
+	secsToGo := roundTime(diff.Seconds())
 	fmt.Printf("You are %d%% vested, for a total of ", int64(portionDone*100))
 	fmt.Printf("%d vested unsold shares (%s)\n", int64(sharesVestedAndUnsold), ac.FormatMoney(sharesVestedAndUnsold*value))
 	fmt.Printf("But if you quit today, you will walk away from %s\n", ac.FormatMoney(sharesUnvested*value))
-	fmt.Printf("Hang in there, little trooper!  Only")
+	fmt.Printf("Hang in there, little trooper! Only")
 	printSecs(secsToGo)
 	fmt.Printf(" to go!\n")
 }
 
-func RoundTime(input float64) int64 {
+func roundTime(input float64) int64 {
 	var result float64
 
 	if input < 0 {
-			result = math.Ceil(input - 0.5)
+		result = math.Ceil(input - 0.5)
 	} else {
-			result = math.Floor(input + 0.5)
+		result = math.Floor(input + 0.5)
 	}
 
 	// only interested in integer, ignore fractional
@@ -226,78 +227,54 @@ func RoundTime(input float64) int64 {
 	return int64(i)
 }
 
-// func timeAs(inc string, diff *time.Duration) int64 {
-// 	switch inc {
-// 	case "hours":
-// 		return RoundTime(diff.Hours())
-// 	case "minutes":
-// 		return RoundTime(diff.Minutes())
-// 	case "seconds":
-// 		return RoundTime(diff.Seconds())
-// 	case "days":
-// 		return RoundTime(diff.Seconds()/86400)
-// 	case "weeks":
-// 		return RoundTime(diff.Seconds()/604800)
-// 	case "months":
-// 		return RoundTime(diff.Seconds()/2600640)
-// 	case "years":
-// 		return RoundTime(diff.Seconds()/31207680)
-// 	}
-// 	return 0
-// }
-
 func printSecs(secsToGo int64) {
-    daysPerYear  := 365
-    daysPerMonth := ( daysPerYear / 12 )
-    minToGo      := int( secsToGo / 60 )
-    hoursToGo    := int( minToGo / 60 )
-    daysToGo     := int( hoursToGo / 24 )
-    yearsToGo    := int( daysToGo / daysPerYear )
-    monthsToGo   := int( daysToGo / daysPerMonth )
+	daysPerYear := 365
+	daysPerMonth := (daysPerYear / 12)
+	minToGo := int(secsToGo / 60)
+	hoursToGo := int(minToGo / 60)
+	daysToGo := int(hoursToGo / 24)
+	yearsToGo := int(daysToGo / daysPerYear)
+	monthsToGo := int(daysToGo / daysPerMonth)
 
-    monthsToGo = monthsToGo - ( yearsToGo * 12 )
-    daysToGo   = daysToGo - ( yearsToGo * daysPerYear )
-    if monthsToGo < 0 {
+	monthsToGo = monthsToGo - (yearsToGo * 12)
+	daysToGo = daysToGo - (yearsToGo * daysPerYear)
+	if monthsToGo < 0 {
 		monthsToGo = 0
 	}
 
-    daysToGo = daysToGo - int( monthsToGo * daysPerMonth )
-    if daysToGo < 0 {
+	daysToGo = daysToGo - int(monthsToGo*daysPerMonth)
+	if daysToGo < 0 {
 		daysToGo = 0
 	}
 
-    // kludge to avoid "1 month 30 days", which, while correct, sucks.
-    if ( daysToGo > 29 ) {
-        daysToGo = daysToGo - 30
-        monthsToGo = monthsToGo + 1
-        if monthsToGo >= 12 {
-            monthsToGo = monthsToGo - 12
-            yearsToGo = yearsToGo + 1
-        }
-    }
+	// kludge to avoid "1 month 30 days", which, while correct, sucks.
+	if daysToGo > 29 {
+		daysToGo = daysToGo - 30
+		monthsToGo = monthsToGo + 1
+		if monthsToGo >= 12 {
+			monthsToGo = monthsToGo - 12
+			yearsToGo = yearsToGo + 1
+		}
+	}
 
-    //   $daysToGo   = int($daysToGo)   % $days_per_month;
-    //   $monthsToGo = int($monthsToGo) % 12;
-    //   $yearsToGo  = int($yearsToGo);
-
-    if yearsToGo > 0 {
-        fmt.Printf(" %d year", yearsToGo)
-        if yearsToGo != 1 {
+	if yearsToGo > 0 {
+		fmt.Printf(" %d year", yearsToGo)
+		if yearsToGo != 1 {
 			fmt.Print("s")
 		}
-    }
+	}
 
-    if monthsToGo > 0 {
-        fmt.Printf(" %d month", monthsToGo)
-        if monthsToGo != 1 {
+	if monthsToGo > 0 {
+		fmt.Printf(" %d month", monthsToGo)
+		if monthsToGo != 1 {
 			fmt.Printf("s")
 		}
-    }
+	}
 
-    if daysToGo > 0 {
-        fmt.Printf(" %d day", daysToGo)
-        if daysToGo != 1 {
+	if daysToGo > 0 {
+		fmt.Printf(" %d day", daysToGo)
+		if daysToGo != 1 {
 			fmt.Print("s")
 		}
-    }
+	}
 }
