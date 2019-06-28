@@ -21,6 +21,7 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -208,8 +209,7 @@ func formatOutput(cmd *cobra.Command, price float64) {
 	fmt.Printf("%d vested unsold shares (%s)\n", int64(sharesVestedAndUnsold), ac.FormatMoney(sharesVestedAndUnsold*value))
 	fmt.Printf("But if you quit today, you will walk away from %s\n", ac.FormatMoney(sharesUnvested*value))
 	fmt.Printf("Hang in there, little trooper! Only")
-	printSecs(secsToGo)
-	fmt.Printf(" to go!\n")
+	fmt.Printf("%s to go!\n", printSecs(secsToGo))
 }
 
 func roundTime(input float64) int64 {
@@ -227,7 +227,10 @@ func roundTime(input float64) int64 {
 	return int64(i)
 }
 
-func printSecs(secsToGo int64) {
+func printSecs(secsToGo int64) string {
+	var buffer bytes.Buffer
+	var err error
+
 	daysPerYear := 365
 	daysPerMonth := (daysPerYear / 12)
 	minToGo := int(secsToGo / 60)
@@ -258,23 +261,43 @@ func printSecs(secsToGo int64) {
 	}
 
 	if yearsToGo > 0 {
-		fmt.Printf(" %d year", yearsToGo)
+		_, err = buffer.WriteString(fmt.Sprintf(" %d year", yearsToGo))
+		if err != nil {
+			log.Fatalf("Error: %s", err)
+		}
 		if yearsToGo != 1 {
-			fmt.Print("s")
+			_, err = buffer.WriteString(fmt.Sprint("s"))
+			if err != nil {
+				log.Fatalf("Error: %s", err)
+			}
 		}
 	}
 
 	if monthsToGo > 0 {
-		fmt.Printf(" %d month", monthsToGo)
+		_, err = buffer.WriteString(fmt.Sprintf(" %d month", monthsToGo))
+		if err != nil {
+			log.Fatalf("Error: %s", err)
+		}
 		if monthsToGo != 1 {
-			fmt.Printf("s")
+			_, err = buffer.WriteString(fmt.Sprintf("s"))
+			if err != nil {
+				log.Fatalf("Error: %s", err)
+			}
 		}
 	}
 
 	if daysToGo > 0 {
-		fmt.Printf(" %d day", daysToGo)
+		_, err = buffer.WriteString(fmt.Sprintf(" %d day", daysToGo))
+		if err != nil {
+			log.Fatalf("Error: %s", err)
+		}
 		if daysToGo != 1 {
-			fmt.Print("s")
+			_, err = buffer.WriteString(fmt.Sprint("s"))
+			if err != nil {
+				log.Fatalf("Error: %s", err)
+			}
 		}
 	}
+
+	return buffer.String()
 }
