@@ -72,12 +72,12 @@ longer you have to wait until you're fully vested.
 Originally written in perl by Jamie Zawinski.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
-		vestStart, err = time.Parse(time.RFC3339, viper.GetString("vest-start"))
+		vestStart, err = time.Parse(time.RFC1123, viper.GetString("vest-start"))
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		vestEnd, err = time.Parse(time.RFC3339, viper.GetString("vest-end"))
+		vestEnd, err = time.Parse(time.RFC1123, viper.GetString("vest-end"))
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
