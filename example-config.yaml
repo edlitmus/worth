@@ -1,7 +1,7 @@
 # path: ~/.config/worth/config.yaml
 # requires an API key for www.alphavantage.co
-vest-start: 2017-08-08T00:00:00Z
-vest-end: 2021-08-08T00:00:00Z
+vest-start: Tue, 08 Aug 2017 12:00:00 PST
+vest-end: Tue, 08 Aug 2021 12:00:00 PST
 shares: XXX
 apikey: "XXXXXXX"
 ticker: "XXXX"
