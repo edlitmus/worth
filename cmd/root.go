@@ -35,7 +35,7 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"gopkg.in/resty.v1"
+	"github.com/go-resty/resty/v2"
 )
 
 var cfgFile string
@@ -110,7 +110,8 @@ func getQuote() (JsonQuote, error) {
 	var quote JsonQuote
 	var err error
 	// resty.SetDebug(true)
-	resp, err := resty.R().
+	client := resty.New()
+	resp, err := client.R().
 		SetQueryParams(map[string]string{
 			"function": "GLOBAL_QUOTE",
 			"symbol":   viper.GetString("ticker"),

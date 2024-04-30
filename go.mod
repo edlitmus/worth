@@ -3,11 +3,11 @@ module github.com/edlitmus/worth
 go 1.21.9
 
 require (
+	github.com/go-resty/resty/v2 v2.12.0
 	github.com/leekchan/accounting v1.0.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.2
-	gopkg.in/resty.v1 v1.12.0
 )
 
 require (
@@ -30,8 +30,8 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
-	golang.org/x/net v0.19.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/net v0.23.0 // indirect
+	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
